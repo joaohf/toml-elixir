@@ -27,6 +27,12 @@ defmodule Toml.Test.ProviderTest do
     assert :ok = Toml.Provider.init(path: file)
     assert "success!" = Application.get_env(:toml, :provider_test)
     assert {:ok, "success!"} = Toml.Provider.get([:toml, :provider_test])
+
+    Application.put_env(:toml, :nested, bar: "nested")
+
+    assert :ok = Toml.Provider.init(path: file, merge: :toml)
+    assert [foo: "bar"] = Application.get_env(:toml, :nested)
+    assert {:ok, [foo: "bar"]} = Toml.Provider.get([:toml, :nested])
   end
 
   test "exit is triggered if path provided has invalid expansion" do

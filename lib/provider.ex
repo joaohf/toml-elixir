@@ -32,9 +32,13 @@ defmodule Toml.Provider do
   but there are two main differences:
 
     * `:path` (required) - sets the path to the TOML file to load config from
-    * `:keys` - defaults to `:atoms`, but can be set to `:atoms!` if desired, all other 
+    * `:keys` - defaults to `:atoms`, but can be set to `:atoms!` if desired, all other
       key types are ignored, as it results in an invalid config structure
 
+  In additional the follow option controls how the config will be merged:
+
+    * `:merge` - defaults to merge the base and config loaded from file. Can be set to `:toml`
+      to discard the base config and use only config loaded from file.
   """
 
   @doc false
@@ -53,7 +57,7 @@ defmodule Toml.Provider do
     with {:ok, expanded} <- expand_path(path),
          map = Toml.decode_file!(expanded, opts),
          keyword when is_list(keyword) <- to_keyword(map) do
-      persist(keyword)
+      persist(keyword, opts)
     else
       {:error, reason} ->
         exit(reason)
@@ -73,11 +77,26 @@ defmodule Toml.Provider do
     end
   end
 
-  defp persist(keyword) when is_list(keyword) do
+  defp persist(keyword, opts) when is_list(keyword) do
     # For each app
+    merge_with_base? =
+      case Keyword.get(opts, :merge) do
+        a when a in [:toml] ->
+          false
+
+        _ ->
+          true
+      end
+
     for {app, app_config} <- keyword do
       # Get base config
-      base = Application.get_all_env(app)
+      base =
+        if merge_with_base? do
+          Application.get_all_env(app)
+        else
+          []
+        end
+
       # Merge this app's TOML config over the base config
       merged = deep_merge(base, app_config)
       # Persist key/value pairs for this app
